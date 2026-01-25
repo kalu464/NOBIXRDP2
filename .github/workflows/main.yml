@@ -1,43 +1,64 @@
-name: RdpByNTechDz-Admin
+name: Free 16GB Windows RDP - Tanmay Fixed
+
 on:
   workflow_dispatch:
-    inputs:
-      ngrok_download_url:
-        description: 'Past the ngrok Windows (amd64) ZIP direct download link here'
-        required: true
-        default: 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip'
- 
+
 jobs:
-  build:
-    runs-on: windows-latest
+  rdp:
+    runs-on: windows-latest   # 4 vCPU + 16 GB RAM public repo pe
+
     steps:
-      - name: Download and Extract ngrok
-        run: |
-          Invoke-WebRequest -Uri "${{ github.event.inputs.ngrok_download_url }}" -OutFile ngrok.zip
-          Expand-Archive ngrok.zip
- 
-      - name: Authenticate ngrok
-        env:
-          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-        run: .\ngrok\ngrok.exe authtoken $Env:NGROK_AUTH_TOKEN
- 
-      - name: Configure RDP and Create Admin User
-        run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          New-LocalUser "NTechDz" -Password (ConvertTo-SecureString -AsPlainText "W1nd0ws-P4ssw0rd-2025!" -Force) -FullName "NTechDz User"
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "NTechDz"
-          Add-LocalGroupMember -Group "Administrators" -Member "NTechDz"
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1
- 
-      - name: Start RDP Tunnel
-        run: |
-          Write-Host "======================================================================"
-          Write-Host "            RDP Connection Details - NTechDz Channel"
-          Write-Host "======================================================================"
-          Write-Host "Username:    NTechDz (Administrator)"
-          Write-Host "Password:    W1nd0ws-P4ssw0rd-2025!"
-          Write-Host "Please find the RDP Address in the ngrok logs below."
-          Write-Host "======================================================================"
-          .\ngrok\ngrok.exe tcp 3389 --log=stdout
-          
+    - name: Checkout code (if needed)
+      uses: actions/checkout@v4
+
+    - name: Enable RDP + Create Admin User (Fixed Password)
+      run: |
+        net user TanmayAdmin MySecurePass2026 /add
+        net localgroup "Administrators" TanmayAdmin /add
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f
+        reg add "HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 1 /f
+        netsh advfirewall firewall set rule group="remote desktop" new enable=yes
+      shell: cmd   # CMD use kiya taaki password safe rahe (PowerShell se better is case mein)
+
+    - name: Download and Install Tailscale
+      run: |
+        try {
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale.exe" -UseBasicParsing
+          Start-Process -FilePath "tailscale.exe" -ArgumentList "/S" -Wait
+          Write-Output "Tailscale installed successfully."
+        } catch {
+          Write-Error "Tailscale install failed: $_"
+        }
+      shell: pwsh
+
+    - name: Connect Tailscale (with retry)
+      run: |
+        $attempt = 1
+        do {
+          try {
+            & "C:\Program Files\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --accept-routes --accept-dns=false --reset
+            Write-Output "Tailscale connected on attempt $attempt"
+            break
+          } catch {
+            Write-Warning "Attempt $attempt failed. Retrying in 10s..."
+            Start-Sleep -Seconds 10
+            $attempt++
+          }
+        } while ($attempt -le 3)
+      shell: pwsh
+
+    - name: Show Tailscale Status & Your IP (Important!)
+      run: |
+        Start-Sleep -Seconds 60
+        & "C:\Program Files\Tailscale\tailscale.exe" status
+        & "C:\Program Files\Tailscale\tailscale.exe" ip -4
+      shell: pwsh
+
+    - name: Confirm RAM - Should be around 16 GB
+      run: |
+        Get-ComputerInfo | Select-Object WindowsProductName, CsTotalPhysicalMemory
+        systeminfo | Select-String "Total Physical Memory"
+      shell: pwsh
+
+    - name: Keep VM Alive for Max 6 Hours
+      run: Start-Sleep -Seconds 21600
