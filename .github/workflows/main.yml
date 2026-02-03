@@ -1,22 +1,20 @@
-name: Ubuntu SSH via Cloudflare
-
-on:
-  workflow_dispatch:
-
+name: Ubuntu SSH VM with Tailscale
+on: workflow_dispatch
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - uses: actions/checkout@v3
 
-      - name: Setup SSH + Cloudflare Tunnel
-        run: bash linux-ssh.sh
-        env:
-          LINUX_USERNAME: ${{ secrets.LINUX_USERNAME }}
-          LINUX_USER_PASSWORD: ${{ secrets.LINUX_USER_PASSWORD }}
-          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+    - name: Prepare Linux Environment
+      run: sudo apt-get update && sudo apt-get install -y curl
 
-      - name: Keep VM Alive
-        run: sleep 6h
+    - name: Setup Tailscale SSH
+      run: bash tailscale-ssh.sh
+      env:
+        LINUX_USER_PASSWORD: ${{ secrets.LINUX_USER_PASSWORD }}
+        LINUX_USERNAME: ${{ secrets.LINUX_USERNAME }}
+        LINUX_TAILSCALE_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+
+    - name: Keep VM alive
+      run: sleep 6h
