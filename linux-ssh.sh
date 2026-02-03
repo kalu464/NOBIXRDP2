@@ -5,7 +5,7 @@ echo "🔹 Installing Tailscale..."
 curl -fsSL https://tailscale.com/install.sh | sh
 
 echo "🔹 Starting Tailscale with auth key..."
-# LINUX_TAILSCALE_KEY is a GitHub Secret
+# TAILSCALE_AUTH_KEY is a GitHub Secret
 sudo tailscale up --authkey "${TAILSCALE_AUTH_KEY}"
 
 sleep 5
