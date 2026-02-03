@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "🔹 Update & install deps..."
+echo "🔹 Update & install packages..."
 sudo apt-get update -y
-sudo apt-get install -y openssh-server curl wget unzip
+sudo apt-get install -y openssh-server curl wget
 
-echo "🔹 Create/update user..."
+echo "🔹 Create / update user..."
 sudo useradd -m -s /bin/bash "$LINUX_USERNAME" || true
 echo "$LINUX_USERNAME:$LINUX_USER_PASSWORD" | sudo chpasswd
 sudo usermod -aG sudo "$LINUX_USERNAME"
@@ -15,28 +15,20 @@ sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ss
 sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
 sudo systemctl restart ssh
 
-echo "🔹 Install ngrok v3..."
-wget -q https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
-tar -xzf ngrok-v3-stable-linux-amd64.tgz
-sudo mv ngrok /usr/local/bin/ngrok
-chmod +x /usr/local/bin/ngrok
+echo "🔹 Install cloudflared..."
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
+sudo chmod +x /usr/local/bin/cloudflared
 
-echo "🔹 Add ngrok auth token..."
-ngrok config add-authtoken "$NGROK_AUTH_TOKEN"
+echo "🔹 Start Cloudflare SSH tunnel..."
+nohup cloudflared tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN" > cloudflare.log 2>&1 &
 
-echo "🔹 Start ngrok TCP tunnel (SSH)..."
-nohup ngrok tcp 22 --log=stdout > ngrok.log 2>&1 &
-
-echo "⏳ Waiting for ngrok..."
-sleep 15
+sleep 10
 
 echo "======================================"
-echo "✅ UBUNTU SSH READY"
-echo "🖥️  MACHINE : $LINUX_MACHINE_NAME"
-echo "👤 USER    : $LINUX_USERNAME"
-echo "🌐 NGROK TCP ADDRESS:"
-grep -o 'tcp://[^ ]*' ngrok.log | head -n 1 || echo "❌ TCP STILL NOT FOUND"
+echo "✅ CLOUDFLARE SSH TUNNEL STARTED"
+echo "👤 USER : $LINUX_USERNAME"
+echo "🔑 PASS : $LINUX_USER_PASSWORD"
+echo "📄 Tunnel logs (last lines):"
+tail -n 15 cloudflare.log
 echo "======================================"
-
-echo "🔎 ngrok log (last lines):"
-tail -n 20 ngrok.log
