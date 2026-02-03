@@ -1,37 +1,42 @@
 #!/bin/bash
 set -e
 
-echo "🔹 Setting up Ubuntu SSH..."
+echo "🔹 Updating system..."
+sudo apt-get update -y
 
-# Create user if not exists
+echo "🔹 Installing SSH..."
+sudo apt-get install -y openssh-server curl wget unzip
+
+echo "🔹 Creating / updating user..."
 sudo useradd -m -s /bin/bash "$LINUX_USERNAME" || true
 echo "$LINUX_USERNAME:$LINUX_USER_PASSWORD" | sudo chpasswd
 sudo usermod -aG sudo "$LINUX_USERNAME"
 
-# Enable password SSH
+echo "🔹 Configuring SSH..."
 sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
 sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-
 sudo systemctl restart ssh
 
-# Install ngrok
-wget -q -O ngrok.tgz https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
-tar -xzf ngrok.tgz
+echo "🔹 Installing ngrok..."
+wget -q https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
+tar -xzf ngrok-v3-stable-linux-amd64.tgz
 sudo mv ngrok /usr/local/bin/ngrok
+chmod +x /usr/local/bin/ngrok
 
-# Auth ngrok
+echo "🔹 Configuring ngrok auth token..."
 ngrok config add-authtoken "$NGROK_AUTH_TOKEN"
 
-# Start SSH tunnel
+echo "🔹 Starting ngrok TCP tunnel (SSH)..."
 nohup ngrok tcp 22 > ngrok.log 2>&1 &
 
-sleep 5
+echo "⏳ Waiting for ngrok to initialize..."
+sleep 10
 
-echo "===================================="
-echo "✅ Ubuntu SSH VM Ready"
-echo "👤 User : $LINUX_USERNAME"
-echo "🖥️  Name : $LINUX_MACHINE_NAME"
-echo "🔑 Password : $LINUX_USER_PASSWORD"
-echo "🌐 Ngrok tunnel info:"
-curl -s http://127.0.0.1:4040/api/tunnels || true
-echo "===================================="
+echo "======================================"
+echo "✅ UBUNTU SSH READY"
+echo "🖥️  MACHINE : $LINUX_MACHINE_NAME"
+echo "👤 USER    : $LINUX_USERNAME"
+echo "🔑 PASS    : $LINUX_USER_PASSWORD"
+echo "🌐 NGROK TCP ADDRESS:"
+curl -s http://127.0.0.1:4040/api/tunnels | grep -o 'tcp://[^"]*' || echo "❌ TCP NOT FOUND"
+echo "======================================"
