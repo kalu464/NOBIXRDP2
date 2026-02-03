@@ -1,11 +1,7 @@
-name: Ubuntu SSH Virtual Machine
+name: Ubuntu SSH via Cloudflare
 
 on:
   workflow_dispatch:
-
-defaults:
-  run:
-    shell: bash
 
 jobs:
   build:
@@ -15,16 +11,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Update system
-        run: sudo apt-get update -y
-
-      - name: Setup Ubuntu SSH
+      - name: Setup SSH + Cloudflare Tunnel
         run: bash linux-ssh.sh
         env:
-          LINUX_USER_PASSWORD: ${{ secrets.LINUX_USER_PASSWORD }}
-          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-          LINUX_MACHINE_NAME: ${{ secrets.LINUX_MACHINE_NAME }}
           LINUX_USERNAME: ${{ secrets.LINUX_USERNAME }}
+          LINUX_USER_PASSWORD: ${{ secrets.LINUX_USER_PASSWORD }}
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
 
       - name: Keep VM Alive
         run: sleep 6h
